@@ -6,6 +6,9 @@
 #include <iomanip>
 #include <algorithm>
 #include <omp.h>
+#include <thread>
+#include <future>
+#include <vector>
 #include "collatz.h"
 
 uint_fast64_t collatz_next(uint_fast64_t n) {
@@ -57,13 +60,13 @@ void collatz_longest_contig_seq(uint_fast64_t n_begin, uint_fast64_t n_end,
     }
 }
 
-Pair collatz_longest_contig_seq_par(uint_fast64_t n_begin, uint_fast64_t n_end) {
+Pair collatz_longest_contig_seq_pair(uint_fast64_t n_begin, uint_fast64_t n_end) {
     Pair result{0, 0};
     collatz_longest_contig_seq(n_begin, n_end, result.n_min, result.longest_contig_seq_length);
     return result;
 }
 
-void runner_par(uint_fast64_t n_begin, uint_fast64_t n_end) {
+void runner_par1(uint_fast64_t n_begin, uint_fast64_t n_end) {
     Pair result{0, 0};
     auto t_start = std::chrono::high_resolution_clock::now();
     #pragma omp parallel
@@ -72,7 +75,7 @@ void runner_par(uint_fast64_t n_begin, uint_fast64_t n_end) {
         uint_fast64_t id = uint_fast64_t(omp_get_thread_num());
         // Share evenly the workload among thread team.
         uint_fast64_t k = (n_end - n_begin) / omp_get_num_threads();
-        thread_result = collatz_longest_contig_seq_par(n_begin + id * k, n_begin + (id + 1) * k);
+        thread_result = collatz_longest_contig_seq_pair(n_begin + id * k, n_begin + (id + 1) * k);
 
         #pragma omp critical
         result = max_pair(result, thread_result);
@@ -80,7 +83,35 @@ void runner_par(uint_fast64_t n_begin, uint_fast64_t n_end) {
     auto t_stop = std::chrono::high_resolution_clock::now();
     auto et = t_stop - t_start;
     collatz_save(n_begin, n_end, result.n_min, result.longest_contig_seq_length, et);
-    std::cout << "OK\n";
+    std::cout << "OK _par1\n";
+}
+
+void runner_par2(uint_fast64_t n_begin, uint_fast64_t n_end) {
+    Pair result{0, 0};
+    uint_fast64_t n_cores = std::thread::hardware_concurrency();
+    uint_fast64_t k = (n_end - n_begin) / n_cores;
+    std::vector<std::future<Pair>> partial_results;
+    
+    auto t_start = std::chrono::high_resolution_clock::now();
+    
+    for (uint_fast64_t i = 0; i < n_cores; ++i) {
+        partial_results.push_back(
+            std::async(std::launch::async,
+                       collatz_longest_contig_seq_pair,
+                       n_begin + i * k, n_begin + (i + 1) * k));
+    }
+
+    for (auto& pr: partial_results) {
+        result = max_pair(result, pr.get());
+    }
+
+    auto t_stop = std::chrono::high_resolution_clock::now();
+    auto et_msec = std::chrono::duration_cast<std::chrono::milliseconds>(t_stop - t_start);
+
+    std::cout << n_begin << " ... " << n_end << '\n';
+    std::cout <<  result.n_min << '\t' << result.longest_contig_seq_length << '\n';
+    std::cout << et_msec.count() / 1000.0 << '\n';
+
 }
 
 Pair max_pair(Pair res1, Pair res2) {

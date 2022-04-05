@@ -17,9 +17,10 @@ void collatz_longest_contig_seq(uint_fast64_t n_begin,
                                 uint_fast64_t& n_min,
                                 uint_fast64_t& longest_contig_seq_length);
 
-Pair collatz_longest_contig_seq_par(uint_fast64_t n_begin, uint_fast64_t n_end);
+Pair collatz_longest_contig_seq_pair(uint_fast64_t n_begin, uint_fast64_t n_end);
 
-void runner_par(uint_fast64_t n_begin, uint_fast64_t n_end);
+void runner_par1(uint_fast64_t n_begin, uint_fast64_t n_end);
+void runner_par2(uint_fast64_t n_begin, uint_fast64_t n_end);
 
 Pair max_pair(Pair res1, Pair res2);
 
